@@ -52,6 +52,7 @@ export default function BookingModal({ restaurant, onClose }) {
     // Read the old bookings, add the new one, and save the array back
     const oldBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
     const newBooking = {
+      ...restaurant, // keep the original API fields too
       id: Date.now(),
       name: restaurant["Restaurant Name"],
       address: restaurant["Address"],

@@ -3,11 +3,28 @@ import AdPanel from "../components/AdPanel.jsx";
 import AppDownload from "../components/AppDownload.jsx";
 import { ShopIcon, ThumbIcon, SearchIcon } from "../components/Icons.jsx";
 
-// "2025-03-04" -> "04 March 2025"
-function prettyDate(dateString) {
-  const [y, m, d] = dateString.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return String(d).padStart(2, "0") + " " + date.toLocaleDateString("en-US", { month: "long" }) + " " + y;
+// "2025-03-04" -> "04 March 2025". Anything else is shown as it is.
+function prettyDate(value) {
+  const text = String(value || "");
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return text;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return match[3] + " " + date.toLocaleDateString("en-US", { month: "long" }) + " " + match[1];
+}
+
+// Saved bookings may use different key names, so we look for each value
+// under every name we expect and fall back to an empty string.
+function cleanBooking(raw, index) {
+  return {
+    id: raw.id || index,
+    name: raw.name || raw["Restaurant Name"] || raw.restaurantName || raw.restaurant || "",
+    city: raw.city || raw["City"] || "",
+    state: raw.state || raw["State"] || "",
+    address: raw.address || raw["Address"] || "",
+    rating: raw.rating ?? raw["Overall Rating"] ?? "",
+    date: raw.date || raw.bookingDate || raw.reservationDate || "",
+    time: raw.time || raw.bookingTime || raw.timeSlot || raw.slot || "",
+  };
 }
 
 export default function MyBookings() {
@@ -17,13 +34,19 @@ export default function MyBookings() {
 
   // Load saved bookings from localStorage when the page opens
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("bookings") || "[]");
-    setBookings(saved);
+    let saved = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem("bookings") || "[]");
+      if (Array.isArray(parsed)) saved = parsed;
+    } catch (error) {
+      saved = []; // broken data in storage: start with an empty list
+    }
+    setBookings(saved.map(cleanBooking));
   }, []);
 
   // Only show bookings whose restaurant name contains the search text
   const visible = bookings.filter((b) =>
-    b.name.toLowerCase().includes(filter.toLowerCase())
+    String(b.name).toLowerCase().includes(filter.toLowerCase())
   );
 
   function handleSearch(event) {
@@ -52,8 +75,8 @@ export default function MyBookings() {
         <div className="list-with-ad">
           <div className="card-list">
             {visible.length === 0 && <p className="grey">You have no bookings yet.</p>}
-            {visible.map((b) => (
-              <div className="r-card" key={b.id}>
+            {visible.map((b, index) => (
+              <div className="r-card" key={b.id + "-" + index}>
                 <div className="r-icon"><ShopIcon /></div>
                 <div className="r-body">
                   <h3>{b.name}</h3>
